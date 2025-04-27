@@ -54,7 +54,7 @@ print_success "Environment cleanup complete"
 
 # Create and activate virtual environment
 print_step "Creating virtual environment..."
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 # Upgrade pip and install build tools

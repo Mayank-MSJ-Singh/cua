@@ -1,0 +1,186 @@
+import pyautogui
+import base64
+import subprocess
+from io import BytesIO
+from typing import Optional, Dict, Any, List
+import json
+import pyperclip
+from .base import BaseAccessibilityHandler, BaseAutomationHandler
+
+
+def parse_wmctrl_output() -> List[Dict[str, Any]]:
+    """
+    Parse output from `wmctrl -lG` to retrieve window information.
+    Requires wmctrl to be installed on the system.
+    """
+    try:
+        raw = subprocess.check_output(["wmctrl", "-lG"]).decode("utf-8")
+    except Exception:
+        return []
+
+    windows = []
+    for line in raw.splitlines():
+        parts = line.split(None, 7)
+        if len(parts) < 8:
+            continue
+        win_id, desk, x, y, w, h, pid, title = parts
+        windows.append({
+            "id": win_id,
+            "desktop": int(desk),
+            "x": int(x),
+            "y": int(y),
+            "width": int(w),
+            "height": int(h),
+            "pid": int(pid),
+            "title": title.strip(),
+        })
+    return windows
+
+
+class LinuxAccessibilityHandler(BaseAccessibilityHandler):
+    async def get_accessibility_tree(self) -> Dict[str, Any]:
+        """
+        Return a representation of the current windows on the system.
+        """
+        windows = parse_wmctrl_output()
+        return {"success": True, "windows": windows}
+
+    async def find_element(
+        self,
+        id: Optional[str] = None,
+        title: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Find a window by id or title.
+        """
+        windows = parse_wmctrl_output()
+        for win in windows:
+            if id and win["id"] == id:
+                return {"success": True, "element": win}
+            if title and title.lower() in win["title"].lower():
+                return {"success": True, "element": win}
+        return {"success": False, "error": "Element not found"}
+
+
+class LinuxAutomationHandler(BaseAutomationHandler):
+    async def left_click(self, x: Optional[int] = None, y: Optional[int] = None) -> Dict[str, Any]:
+        try:
+            if x is not None and y is not None:
+                pyautogui.moveTo(x, y)
+            pyautogui.click()
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def right_click(self, x: Optional[int] = None, y: Optional[int] = None) -> Dict[str, Any]:
+        try:
+            if x is not None and y is not None:
+                pyautogui.moveTo(x, y)
+            pyautogui.rightClick()
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def double_click(self, x: Optional[int] = None, y: Optional[int] = None) -> Dict[str, Any]:
+        try:
+            if x is not None and y is not None:
+                pyautogui.moveTo(x, y)
+            pyautogui.doubleClick()
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def move_cursor(self, x: int, y: int) -> Dict[str, Any]:
+        try:
+            pyautogui.moveTo(x, y)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def drag_to(self, x: int, y: int, button: str = "left", duration: float = 0.5) -> Dict[str, Any]:
+        try:
+            pyautogui.dragTo(x, y, duration=duration, button=button)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def type_text(self, text: str) -> Dict[str, Any]:
+        try:
+            pyautogui.write(text)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def press_key(self, key: str) -> Dict[str, Any]:
+        try:
+            pyautogui.press(key)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def hotkey(self, keys: List[str]) -> Dict[str, Any]:
+        try:
+            pyautogui.hotkey(*keys)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def scroll_down(self, clicks: int = 1) -> Dict[str, Any]:
+        try:
+            pyautogui.scroll(-clicks)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def scroll_up(self, clicks: int = 1) -> Dict[str, Any]:
+        try:
+            pyautogui.scroll(clicks)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def screenshot(self) -> Dict[str, Any]:
+        try:
+            screenshot = pyautogui.screenshot()
+            buffered = BytesIO()
+            screenshot.save(buffered, format="PNG")
+            buffered.seek(0)
+            data = base64.b64encode(buffered.getvalue()).decode()
+            return {"success": True, "image_data": data}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def get_screen_size(self) -> Dict[str, Any]:
+        try:
+            w, h = pyautogui.size()
+            return {"success": True, "size": {"width": w, "height": h}}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def get_cursor_position(self) -> Dict[str, Any]:
+        try:
+            x, y = pyautogui.position()
+            return {"success": True, "position": {"x": x, "y": y}}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def copy_to_clipboard(self) -> Dict[str, Any]:
+        try:
+            content = pyperclip.paste()
+            return {"success": True, "content": content}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def set_clipboard(self, text: str) -> Dict[str, Any]:
+        try:
+            pyperclip.copy(text)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def run_command(self, command: str) -> Dict[str, Any]:
+        try:
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            return {"success": True, "stdout": result.stdout, "stderr": result.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
