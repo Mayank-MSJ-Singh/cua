@@ -29,9 +29,9 @@ class Computer:
         display: Union[Display, Dict[str, int], str] = "1024x768",
         memory: str = "8GB",
         cpu: str = "4",
-        os: OSType = "macos",
+        os: OSType = "linux",
         name: str = "",
-        image: str = "macos-sequoia-cua:latest",
+        image: str = "tails-amd64-6.15.iso",
         shared_directories: Optional[List[str]] = None,
         use_host_computer_server: bool = False,
         verbosity: Union[int, LogLevel] = logging.INFO,
@@ -176,121 +176,121 @@ class Computer:
         self.logger.info("Starting computer...")
         start_time = time.time()
 
-        try:
-            # If using host computer server
-            if self.use_host_computer_server:
-                self.logger.info("Using host computer server")
-                # Set ip_address for host computer server mode
-                ip_address = "localhost"
-                # Create the interface with explicit type annotation
-                from .interface.base import BaseComputerInterface
+        #try:
+        # If using host computer server
+        if self.use_host_computer_server:
+            self.logger.info("Using host computer server")
+            # Set ip_address for host computer server mode
+            ip_address = "localhost"
+            # Create the interface with explicit type annotation
+            from .interface.base import BaseComputerInterface
 
-                self._interface = cast(
-                    BaseComputerInterface,
-                    InterfaceFactory.create_interface_for_os(
-                        os=self.os, ip_address=ip_address  # type: ignore[arg-type]
-                    ),
-                )
+            self._interface = cast(
+                BaseComputerInterface,
+                InterfaceFactory.create_interface_for_os(
+                    os=self.os, ip_address=ip_address  # type: ignore[arg-type]
+                ),
+            )
 
-                self.logger.info("Waiting for host computer server to be ready...")
-                await self._interface.wait_for_ready()
-                self.logger.info("Host computer server ready")
-            else:
-                # Start or connect to VM
-                self.logger.info(f"Starting VM: {self.image}")
-                if not self._pylume_context:
-                    try:
-                        self.logger.verbose("Initializing PyLume context...")
-
-                        # Configure PyLume based on initialization parameters
-                        pylume_kwargs = {
-                            "debug": self.verbosity <= LogLevel.DEBUG,
-                            "server_start_timeout": 120,  # Increase timeout to 2 minutes
-                        }
-
-                        # Add port if specified
-                        if hasattr(self, "port") and self.port is not None:
-                            pylume_kwargs["port"] = self.port
-                            self.logger.verbose(f"Using specified port for PyLume: {self.port}")
-
-                        # Add host if specified
-                        if hasattr(self, "host") and self.host != "localhost":
-                            pylume_kwargs["host"] = self.host
-                            self.logger.verbose(f"Using specified host for PyLume: {self.host}")
-
-                        # Create PyLume instance with configured parameters
-                        self.config.pylume = PyLume(**pylume_kwargs)
-
-                        self._pylume_context = await self.config.pylume.__aenter__()  # type: ignore[attr-defined]
-                        self.logger.verbose("PyLume context initialized successfully")
-                    except Exception as e:
-                        self.logger.error(f"Failed to initialize PyLume context: {e}")
-                        raise RuntimeError(f"Failed to initialize PyLume: {e}")
-
-                # Try to get the VM, if it doesn't exist, create it and pull the image
+            self.logger.info("Waiting for host computer server to be ready...")
+            await self._interface.wait_for_ready()
+            self.logger.info("Host computer server ready")
+        else:
+            # Start or connect to VM
+            self.logger.info(f"Starting VM: {self.image}")
+            if not self._pylume_context:
                 try:
-                    vm = await self.config.pylume.get_vm(self.config.name)  # type: ignore[attr-defined]
-                    self.logger.verbose(f"Found existing VM: {self.config.name}")
+                    self.logger.verbose("Initializing PyLume context...")
+
+                    # Configure PyLume based on initialization parameters
+                    pylume_kwargs = {
+                        "debug": self.verbosity <= LogLevel.DEBUG,
+                        "server_start_timeout": 120,  # Increase timeout to 2 minutes
+                    }
+
+                    # Add port if specified
+                    if hasattr(self, "port") and self.port is not None:
+                        pylume_kwargs["port"] = self.port
+                        self.logger.verbose(f"Using specified port for PyLume: {self.port}")
+
+                    # Add host if specified
+                    if hasattr(self, "host") and self.host != "localhost":
+                        pylume_kwargs["host"] = self.host
+                        self.logger.verbose(f"Using specified host for PyLume: {self.host}")
+
+                    # Create PyLume instance with configured parameters
+                    self.config.pylume = PyLume(**pylume_kwargs)
+
+                    self._pylume_context = await self.config.pylume.__aenter__()  # type: ignore[attr-defined]
+                    self.logger.verbose("PyLume context initialized successfully")
                 except Exception as e:
-                    self.logger.verbose(f"VM not found, pulling image: {e}")
-                    image_ref = ImageRef(
-                        image=self.config.image,
-                        tag=self.config.tag,
-                        registry="ghcr.io",
-                        organization="trycua",
-                    )
-                    self.logger.info(f"Pulling image {self.config.image}:{self.config.tag}...")
-                    try:
-                        await self.config.pylume.pull_image(image_ref, name=self.config.name)  # type: ignore[attr-defined]
-                    except Exception as pull_error:
-                        self.logger.error(f"Failed to pull image: {pull_error}")
-                        raise RuntimeError(f"Failed to pull VM image: {pull_error}")
+                    self.logger.error(f"Failed to initialize PyLume context: {e}")
+                    raise RuntimeError(f"Failed to initialize PyLume: {e}")
 
-                # Convert paths to SharedDirectory objects
-                shared_directories = []
-                for path in self.shared_paths:
-                    self.logger.verbose(f"Adding shared directory: {path}")
-                    shared_directories.append(
-                        SharedDirectory(host_path=path)  # type: ignore[arg-type]
-                    )
+            # Try to get the VM, if it doesn't exist, create it and pull the image
+            try:
+                vm = await self.config.pylume.get_vm(self.config.name)  # type: ignore[attr-defined]
+                self.logger.verbose(f"Found existing VM: {self.config.name}")
+            except Exception as e:
+                self.logger.verbose(f"VM not found, pulling image: {e}")
+                image_ref = ImageRef(
+                    image=self.config.image,
+                    tag=self.config.tag,
+                    registry="ghcr.io",
+                    organization="trycua",
+                )
+                self.logger.info(f"Pulling image {self.config.image}:{self.config.tag}...")
+                try:
+                    await self.config.pylume.pull_image(image_ref, name=self.config.name)  # type: ignore[attr-defined]
+                except Exception as pull_error:
+                    self.logger.error(f"Failed to pull image: {pull_error}")
+                    raise RuntimeError(f"Failed to pull VM image: {pull_error}")
 
-                # Run with shared directories
-                self.logger.info(f"Starting VM {self.config.name}...")
-                run_opts = VMRunOpts(
-                    no_display=False,  # type: ignore[arg-type]
-                    shared_directories=shared_directories,  # type: ignore[arg-type]
+            # Convert paths to SharedDirectory objects
+            shared_directories = []
+            for path in self.shared_paths:
+                self.logger.verbose(f"Adding shared directory: {path}")
+                shared_directories.append(
+                    SharedDirectory(host_path=path)  # type: ignore[arg-type]
                 )
 
-                # Log the run options for debugging
-                self.logger.info(f"VM run options: {vars(run_opts)}")
+            # Run with shared directories
+            self.logger.info(f"Starting VM {self.config.name}...")
+            run_opts = VMRunOpts(
+                no_display=False,  # type: ignore[arg-type]
+                shared_directories=shared_directories,  # type: ignore[arg-type]
+            )
 
-                # Log the equivalent curl command for debugging
-                payload = json.dumps({"noDisplay": False, "sharedDirectories": []})
-                curl_cmd = f"curl -X POST 'http://localhost:3000/lume/vms/{self.config.name}/run' -H 'Content-Type: application/json' -d '{payload}'"
-                self.logger.info(f"Equivalent curl command:")
-                self.logger.info(f"{curl_cmd}")
+            # Log the run options for debugging
+            self.logger.info(f"VM run options: {vars(run_opts)}")
 
-                try:
-                    response = await self.config.pylume.run_vm(self.config.name, run_opts)  # type: ignore[attr-defined]
-                    self.logger.info(f"VM run response: {response if response else 'None'}")
-                except Exception as run_error:
-                    self.logger.error(f"Failed to run VM: {run_error}")
-                    raise RuntimeError(f"Failed to start VM: {run_error}")
+            # Log the equivalent curl command for debugging
+            payload = json.dumps({"noDisplay": False, "sharedDirectories": []})
+            curl_cmd = f"curl -X POST 'http://localhost:3000/lume/vms/{self.config.name}/run' -H 'Content-Type: application/json' -d '{payload}'"
+            self.logger.info(f"Equivalent curl command:")
+            self.logger.info(f"{curl_cmd}")
 
-                # Wait for VM to be ready with required properties
-                self.logger.info("Waiting for VM to be ready...")
-                try:
-                    vm = await self.wait_vm_ready()
-                    if not vm or not vm.ip_address:  # type: ignore[attr-defined]
-                        raise RuntimeError(f"VM {self.config.name} failed to get IP address")
-                    ip_address = vm.ip_address  # type: ignore[attr-defined]
-                    self.logger.info(f"VM is ready with IP: {ip_address}")
-                except Exception as wait_error:
-                    self.logger.error(f"Error waiting for VM: {wait_error}")
-                    raise RuntimeError(f"VM failed to become ready: {wait_error}")
-        except Exception as e:
+            try:
+                response = await self.config.pylume.run_vm(self.config.name, run_opts)  # type: ignore[attr-defined]
+                self.logger.info(f"VM run response: {response if response else 'None'}")
+            except Exception as run_error:
+                self.logger.error(f"Failed to run VM: {run_error}")
+                raise RuntimeError(f"Failed to start VM: {run_error}")
+
+            # Wait for VM to be ready with required properties
+            self.logger.info("Waiting for VM to be ready...")
+            try:
+                vm = await self.wait_vm_ready()
+                if not vm or not vm.ip_address:  # type: ignore[attr-defined]
+                    raise RuntimeError(f"VM {self.config.name} failed to get IP address")
+                ip_address = vm.ip_address  # type: ignore[attr-defined]
+                self.logger.info(f"VM is ready with IP: {ip_address}")
+            except Exception as wait_error:
+                self.logger.error(f"Error waiting for VM: {wait_error}")
+                raise RuntimeError(f"VM failed to become ready: {wait_error}")
+        '''except Exception as e:
             self.logger.error(f"Failed to initialize computer: {e}")
-            raise RuntimeError(f"Failed to initialize computer: {e}")
+            raise RuntimeError(f"Failed to initialize computer: {e}")'''
 
         try:
             # Initialize the interface using the factory with the specified OS

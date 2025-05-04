@@ -25,8 +25,11 @@ class InterfaceFactory:
         """
         # Import implementations here to avoid circular imports
         from .macos import MacOSComputerInterface
+        from .linux import LinuxInterface
         
         if os == 'macos':
             return MacOSComputerInterface(ip_address)
+        elif os == 'linux':
+            return LinuxInterface(ip_address)
         else:
             raise ValueError(f"Unsupported OS type: {os}") 

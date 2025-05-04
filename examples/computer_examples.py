@@ -34,9 +34,9 @@ async def main():
             display="1024x768",  # Higher resolution
             memory="8GB",  # More memory
             cpu="4",  # More CPU cores
-            os="macos",
+            os="linux",  # Specify the OS
             verbosity=LogLevel.NORMAL,  # Use QUIET to suppress most logs
-            use_host_computer_server=False,
+            use_host_computer_server=True,
         )
         try:
             await computer.run()
