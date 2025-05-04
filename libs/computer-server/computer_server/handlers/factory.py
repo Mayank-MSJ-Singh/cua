@@ -41,8 +41,8 @@ class HandlerFactory:
         """
         os_type = HandlerFactory._get_current_os()
         
-        #if os_type == 'darwin':
-        #    return MacOSAccessibilityHandler(), MacOSAutomationHandler()
+        if os_type == 'darwin':
+            return MacOSAccessibilityHandler(), MacOSAutomationHandler()
         if os_type == 'linux':
             return LinuxAccessibilityHandler(), LinuxAutomationHandler()
         else:
